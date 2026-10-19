@@ -1111,5 +1111,25 @@ const secObs = new IntersectionObserver((es) => {
   const el = document.getElementById(id); if (el) secObs.observe(el);
 });
 </script>
+<script>
+/* per-channel invite attribution — arrive as /?src=tt|yt|ig|bbb|rd|dm and every
+   Discord invite swaps to that channel's own code, so Server Settings > Invites
+   shows exactly which channel sent people. Falls back to the session's source. */
+(function () {
+  try {
+    var MAP = { tt: '3FEVMpCU2R', yt: 'Us9QawdAe3', ig: 'njz8Ye3RNk',
+                bbb: 'UQHgh7a62h', rd: 'jByT7bt4un', dm: 'BeMXXnkfp7' };
+    var src = new URLSearchParams(location.search).get('src');
+    if (src && MAP[src.toLowerCase()]) sessionStorage.setItem('rab_src', src.toLowerCase());
+    else src = sessionStorage.getItem('rab_src');
+    var code = src && MAP[String(src).toLowerCase()];
+    if (code) {
+      document.querySelectorAll('a[href*="discord.com/invite/"]').forEach(function (a) {
+        a.href = 'https://discord.com/invite/' + code;
+      });
+    }
+  } catch (e) {}
+})();
+</script>
 </body>
 </html>
