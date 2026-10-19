@@ -1,0 +1,1106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAB — the Minecraft Bedrock Realm bot that never goes down</title>
+<meta name="description" content="RAB is a Minecraft Bedrock Realm bot, Discord control room and web panel in one. 55 slash commands, always-online supervision, playtime analytics and a two-layer design that survives game updates.">
+<meta name="theme-color" content="#140819">
+<meta property="og:title" content="RAB — Minecraft Bedrock Realm bot">
+<meta property="og:description" content="Realms have no console. RAB joins as a player, supervises the server, and keeps your admin tools alive through every game update.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ff4fd8'/%3E%3Cstop offset='1' stop-color='%23b06bff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='url(%23g)'/%3E%3Ctext x='32' y='45' font-family='Segoe UI,sans-serif' font-size='36' font-weight='800' text-anchor='middle' fill='%2321041c'%3ER%3C/text%3E%3C/svg%3E">
+<style>
+/* ================================================================
+   RAB showcase — shares the control panel's magenta aurora tokens
+   ================================================================ */
+:root {
+  --bg: #140819; --bg2: #1a0c22; --card: #24122f; --card2: #2c1739;
+  --line: #3b1f4e; --line2: #512c6b;
+  --txt: #f7eefb; --dim: #bda9cd; --faint: #8f7aa3;
+  --acc: #ff4fd8; --acc-soft: #ff8ee6; --acc-dim: rgba(255, 79, 216, .14);
+  --acc2: #b06bff; --warn: #ffb02e; --danger: #ff5c7a; --ok: #4ade80;
+  --r-lg: 18px; --r-md: 14px; --r-sm: 10px;
+  --shadow: 0 22px 50px -26px rgba(0, 0, 0, .9);
+  --mono: 'Cascadia Code', ui-monospace, Consolas, 'Courier New', monospace;
+  --sans: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  --max: 1180px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  font-family: var(--sans); color: var(--txt);
+  font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  background:
+    radial-gradient(900px 520px at 8% -12%, rgba(255, 79, 216, .2), transparent 60%),
+    radial-gradient(1100px 620px at 108% 10%, rgba(176, 107, 255, .2), transparent 55%),
+    radial-gradient(900px 700px at 55% 120%, rgba(214, 51, 196, .16), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+body::before {
+  content: ''; position: fixed; inset: -20%; z-index: -2; pointer-events: none;
+  background:
+    radial-gradient(340px 340px at 22% 30%, rgba(255, 79, 216, .13), transparent 70%),
+    radial-gradient(420px 420px at 78% 68%, rgba(176, 107, 255, .13), transparent 70%);
+  animation: orb-drift 34s ease-in-out infinite alternate;
+}
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E");
+}
+@keyframes orb-drift {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to   { transform: translate3d(3%, 2%, 0) scale(1.08); }
+}
+::selection { background: rgba(255, 79, 216, .45); color: #fff; }
+a { color: var(--acc); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, .mono { font-family: var(--mono); }
+:focus-visible { outline: 2px solid var(--acc2); outline-offset: 3px; border-radius: 6px; }
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-thumb { background-color: #4a2a61; border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: #66397f; }
+::-webkit-scrollbar-track { background: transparent; }
+img, svg { max-width: 100%; }
+.wrap { width: min(var(--max), calc(100% - 40px)); margin-inline: auto; }
+
+/* ================= nav ================= */
+.nav {
+  position: sticky; top: 0; z-index: 60;
+  background: rgba(16, 8, 22, .8); backdrop-filter: blur(16px) saturate(1.3);
+  border-bottom: 1px solid var(--line);
+}
+.nav-in { display: flex; align-items: center; gap: 26px; height: 66px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: -.02em; color: var(--txt); font-size: 17px; }
+.brand:hover { text-decoration: none; }
+.brand-mark {
+  width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  color: #21041c; font-weight: 900; font-size: 16px;
+  box-shadow: 0 6px 18px -6px rgba(255, 79, 216, .7);
+}
+.brand small { display: block; font-size: 10.5px; font-weight: 600; color: var(--faint); letter-spacing: .1em; text-transform: uppercase; line-height: 1; }
+.nav-links { display: flex; gap: 4px; margin-left: auto; }
+.nav-links a {
+  color: var(--dim); font-size: 14px; font-weight: 550; padding: 8px 12px; border-radius: 9px;
+}
+.nav-links a:hover { color: var(--txt); background: rgba(255, 255, 255, .06); text-decoration: none; }
+.nav-links a.on { color: var(--acc-soft); background: var(--acc-dim); }
+.nav-cta { display: flex; gap: 9px; }
+
+/* ================= buttons ================= */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+  font-family: var(--sans); font-size: 14.5px; font-weight: 650; cursor: pointer;
+  padding: 11px 20px; border-radius: 11px; border: 1px solid var(--line2);
+  background: rgba(255, 255, 255, .05); color: var(--txt);
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease;
+  white-space: nowrap;
+}
+.btn:hover { transform: translateY(-2px); background: rgba(255, 255, 255, .09); border-color: var(--acc); text-decoration: none; }
+.btn.primary {
+  background: linear-gradient(135deg, var(--acc), var(--acc2)); border-color: transparent; color: #24041f;
+  box-shadow: 0 14px 34px -14px rgba(255, 79, 216, .8);
+}
+.btn.primary:hover { box-shadow: 0 20px 44px -14px rgba(255, 79, 216, .95); }
+.btn.lg { padding: 14px 26px; font-size: 15.5px; border-radius: 13px; }
+.btn.ghost { background: transparent; }
+.btn svg { flex: none; }
+
+/* ================= hero ================= */
+.hero { padding: 84px 0 64px; position: relative; }
+.hero-grid { display: grid; grid-template-columns: 1.02fr .98fr; gap: 54px; align-items: center; }
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 9px; font-size: 12.5px; font-weight: 650;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--acc-soft);
+  background: var(--acc-dim); border: 1px solid rgba(255, 79, 216, .3);
+  padding: 7px 14px; border-radius: 100px; margin-bottom: 22px;
+}
+.eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 0 rgba(74, 222, 128, .7); animation: ping 2.2s ease-out infinite; }
+@keyframes ping { 70%, 100% { box-shadow: 0 0 0 9px rgba(74, 222, 128, 0); } }
+h1 {
+  font-size: clamp(38px, 5.6vw, 66px); line-height: 1.04; letter-spacing: -.035em;
+  font-weight: 820; margin: 0 0 20px;
+}
+h1 .grad {
+  background: linear-gradient(115deg, var(--acc) 0%, var(--acc2) 60%, var(--acc) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.lede { font-size: clamp(16.5px, 1.6vw, 19px); color: var(--dim); max-width: 56ch; margin: 0 0 30px; }
+.lede b { color: var(--txt); font-weight: 650; }
+.hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 26px; }
+.hero-trust { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13.5px; color: var(--faint); }
+.hero-trust span { display: inline-flex; align-items: center; gap: 7px; }
+.tick { color: var(--ok); font-weight: 800; }
+
+/* hero console card */
+.console-card {
+  position: relative; border-radius: var(--r-lg); overflow: hidden;
+  background: rgba(24, 11, 31, .92); border: 1px solid var(--line2);
+  box-shadow: var(--shadow), 0 0 0 1px rgba(255, 79, 216, .1);
+  backdrop-filter: blur(14px);
+}
+.console-card::before {
+  content: ''; position: absolute; inset: -40% -20% auto; height: 60%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 79, 216, .22), transparent 70%); filter: blur(30px);
+}
+.cc-bar {
+  display: flex; align-items: center; gap: 9px; padding: 12px 15px;
+  border-bottom: 1px solid var(--line); background: rgba(255, 255, 255, .03); position: relative;
+}
+.cc-bar .lamp { width: 9px; height: 9px; border-radius: 50%; }
+.cc-title { font-family: var(--mono); font-size: 12px; color: var(--faint); margin-left: 6px; }
+.cc-live {
+  margin-left: auto; font-size: 10.5px; font-weight: 800; letter-spacing: .09em;
+  color: var(--ok); background: rgba(74, 222, 128, .12); border: 1px solid rgba(74, 222, 128, .35);
+  padding: 3px 9px; border-radius: 100px; display: inline-flex; align-items: center; gap: 6px;
+}
+.cc-live i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); animation: blink 1.6s infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.cc-stats { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); }
+.cc-stat { padding: 15px 16px; border-right: 1px solid var(--line); }
+.cc-stat:last-child { border-right: 0; }
+.cc-stat .k { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+.cc-stat .v { font-family: var(--mono); font-size: 21px; font-weight: 700; margin-top: 3px; letter-spacing: -.02em; }
+.cc-stat .v.ok { color: var(--ok); }
+.cc-stat .v.acc { color: var(--acc-soft); }
+.cc-feed { padding: 13px 15px; font-family: var(--mono); font-size: 12.4px; line-height: 1.85; min-height: 168px; }
+.cc-feed .ln { color: var(--dim); animation: rise .4s ease both; }
+.cc-feed .ln .t { color: var(--faint); }
+.cc-feed .ln .g { color: var(--ok); }
+.cc-feed .ln .m { color: var(--acc-soft); }
+.cc-feed .ln .w { color: var(--warn); }
+@keyframes rise { from { opacity: 0; transform: translateY(7px); } }
+.cc-cursor { display: inline-block; width: 7px; height: 14px; background: var(--acc); vertical-align: -2px; animation: blink 1s steps(2) infinite; }
+
+/* floating discord chip */
+.chip-float {
+  position: absolute; right: -14px; bottom: -20px; z-index: 3;
+  display: flex; align-items: center; gap: 11px; padding: 12px 16px;
+  background: rgba(30, 15, 40, .97); border: 1px solid var(--line2);
+  border-radius: 14px; box-shadow: var(--shadow); backdrop-filter: blur(12px);
+  animation: bob 5s ease-in-out infinite;
+}
+@keyframes bob { 50% { transform: translateY(-9px); } }
+.chip-float .slash { font-family: var(--mono); color: var(--acc-soft); font-size: 13.5px; font-weight: 700; }
+.chip-float .who { font-size: 12px; color: var(--faint); }
+
+/* ================= stats strip ================= */
+.strip { border-block: 1px solid var(--line); background: rgba(20, 9, 26, .55); backdrop-filter: blur(8px); }
+.strip-in { display: grid; grid-template-columns: repeat(5, 1fr); }
+.stat { padding: 30px 20px; text-align: center; border-right: 1px solid var(--line); }
+.stat:last-child { border-right: 0; }
+.stat .n { font-size: clamp(26px, 3vw, 40px); font-weight: 820; letter-spacing: -.03em; line-height: 1; }
+.stat .n .u { font-size: .55em; color: var(--acc); }
+.stat .l { font-size: 12.5px; color: var(--faint); margin-top: 8px; letter-spacing: .04em; }
+
+/* ================= sections ================= */
+section { padding: 88px 0; position: relative; }
+.sec-head { max-width: 720px; margin-bottom: 46px; }
+.kicker {
+  font-size: 12.5px; font-weight: 750; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--acc); margin-bottom: 13px; display: flex; align-items: center; gap: 10px;
+}
+.kicker::after { content: ''; height: 1px; flex: 1; background: linear-gradient(90deg, var(--line2), transparent); }
+h2 { font-size: clamp(30px, 3.7vw, 46px); line-height: 1.1; letter-spacing: -.03em; font-weight: 800; margin: 0 0 16px; }
+h2 .grad { background: linear-gradient(115deg, var(--acc), var(--acc2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.sec-head p { color: var(--dim); font-size: 17px; margin: 0; }
+
+/* problem / insight */
+.insight { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; }
+.insight .box {
+  padding: 28px; border-radius: var(--r-lg); border: 1px solid var(--line);
+  background: linear-gradient(160deg, rgba(44, 23, 57, .7), rgba(36, 18, 47, .45));
+}
+.insight .box.bad { border-color: rgba(255, 92, 122, .3); }
+.insight .box.good { border-color: rgba(74, 222, 128, .3); }
+.insight h3 { margin: 12px 0 10px; font-size: 19px; letter-spacing: -.015em; }
+.insight p { margin: 0; color: var(--dim); font-size: 15px; }
+.insight .tag {
+  display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 750;
+  letter-spacing: .08em; text-transform: uppercase; padding: 5px 11px; border-radius: 100px;
+}
+.tag.bad { color: var(--danger); background: rgba(255, 92, 122, .12); border: 1px solid rgba(255, 92, 122, .32); }
+.tag.good { color: var(--ok); background: rgba(74, 222, 128, .12); border: 1px solid rgba(74, 222, 128, .32); }
+
+/* two-layer architecture */
+.layers { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; margin-top: 26px; }
+.layer {
+  position: relative; padding: 28px; border-radius: var(--r-lg); overflow: hidden;
+  background: rgba(36, 18, 47, .7); border: 1px solid var(--line);
+  transition: transform .2s ease, border-color .2s ease;
+}
+.layer:hover { transform: translateY(-4px); border-color: var(--acc); }
+.layer .num {
+  position: absolute; right: 18px; top: 6px; font-size: 76px; font-weight: 900;
+  color: rgba(255, 255, 255, .045); letter-spacing: -.05em; line-height: 1;
+}
+.layer .badge {
+  display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 750;
+  letter-spacing: .07em; text-transform: uppercase; padding: 5px 11px; border-radius: 100px;
+  background: var(--acc-dim); border: 1px solid rgba(255, 79, 216, .3); color: var(--acc-soft);
+}
+.layer h3 { font-size: 21px; margin: 15px 0 9px; letter-spacing: -.02em; }
+.layer p { color: var(--dim); font-size: 15px; margin: 0 0 14px; }
+.layer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.layer li { display: flex; gap: 9px; font-size: 14.2px; color: var(--dim); }
+.layer li b { color: var(--txt); font-weight: 620; }
+.layer li::before { content: '→'; color: var(--acc); font-weight: 700; flex: none; }
+.stability {
+  margin-top: 22px; padding: 20px 24px; border-radius: var(--r-md);
+  background: linear-gradient(100deg, rgba(255, 79, 216, .1), rgba(176, 107, 255, .07));
+  border: 1px solid rgba(255, 79, 216, .28);
+  display: flex; gap: 16px; align-items: flex-start;
+}
+.stability .ico { flex: none; width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; background: rgba(255, 79, 216, .18); }
+.stability p { margin: 0; color: var(--dim); font-size: 15px; }
+.stability b { color: var(--txt); }
+
+/* feature grid */
+.features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.feat {
+  padding: 26px; border-radius: var(--r-lg); border: 1px solid var(--line);
+  background: linear-gradient(165deg, rgba(44, 23, 57, .62), rgba(30, 15, 40, .4));
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+  position: relative; overflow: hidden;
+}
+.feat::after {
+  content: ''; position: absolute; right: -30%; top: -50%; width: 60%; height: 100%;
+  background: radial-gradient(circle, rgba(255, 79, 216, .16), transparent 70%);
+  opacity: 0; transition: opacity .25s ease; pointer-events: none;
+}
+.feat:hover { transform: translateY(-5px); border-color: rgba(255, 79, 216, .5); box-shadow: 0 26px 50px -30px rgba(255, 79, 216, .6); }
+.feat:hover::after { opacity: 1; }
+.feat .ic {
+  width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center;
+  background: linear-gradient(135deg, rgba(255, 79, 216, .22), rgba(176, 107, 255, .18));
+  border: 1px solid rgba(255, 79, 216, .3); margin-bottom: 16px;
+}
+.feat h3 { font-size: 17.5px; margin: 0 0 8px; letter-spacing: -.015em; }
+.feat p { margin: 0; color: var(--dim); font-size: 14.6px; }
+.feat .more { display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 650; color: var(--acc-soft); }
+
+/* ================= command explorer ================= */
+.tools { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px; }
+.search {
+  position: relative; flex: 1 1 300px; min-width: 240px;
+}
+.search input {
+  width: 100%; font-family: var(--sans); font-size: 15px; color: var(--txt);
+  padding: 13px 15px 13px 42px; border-radius: 12px;
+  background: rgba(255, 255, 255, .05); border: 1px solid var(--line2);
+  transition: border-color .16s, box-shadow .16s;
+}
+.search input::placeholder { color: var(--faint); }
+.search input:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 4px var(--acc-dim); }
+.search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--faint); pointer-events: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  font-family: var(--sans); font-size: 13px; font-weight: 620; cursor: pointer;
+  padding: 8px 14px; border-radius: 100px; border: 1px solid var(--line2);
+  background: rgba(255, 255, 255, .04); color: var(--dim);
+  transition: all .15s ease; white-space: nowrap;
+}
+.chip:hover { border-color: var(--acc); color: var(--txt); }
+.chip[aria-pressed="true"] {
+  background: linear-gradient(135deg, var(--acc), var(--acc2)); border-color: transparent;
+  color: #24041f; font-weight: 720;
+}
+.chip .ct { opacity: .62; font-size: 11.5px; margin-left: 5px; }
+.chip[aria-pressed="true"] .ct { opacity: .8; }
+.tool-sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 4px; }
+.result-meta { display: flex; align-items: center; gap: 14px; font-size: 13.5px; color: var(--faint); margin-bottom: 16px; }
+.result-meta b { color: var(--acc-soft); font-weight: 700; }
+.cmd-list { display: grid; gap: 10px; }
+.cmd {
+  display: grid; grid-template-columns: minmax(200px, auto) 1fr auto; gap: 16px; align-items: center;
+  padding: 15px 18px; border-radius: var(--r-md);
+  background: rgba(36, 18, 47, .55); border: 1px solid var(--line);
+  transition: border-color .16s, background .16s, transform .16s;
+  animation: rise .3s ease both;
+}
+.cmd:hover { border-color: rgba(255, 79, 216, .45); background: rgba(44, 23, 57, .75); transform: translateX(3px); }
+.cmd .nm {
+  font-family: var(--mono); font-size: 13.6px; font-weight: 650; color: var(--acc-soft);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cmd .nm .sub { color: var(--dim); }
+.cmd .ds { font-size: 14.2px; color: var(--dim); }
+.cmd .rt { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.pill {
+  font-size: 10.5px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 100px; white-space: nowrap;
+}
+.pill.viewer { color: var(--ok); background: rgba(74, 222, 128, .12); border: 1px solid rgba(74, 222, 128, .3); }
+.pill.moderator { color: var(--warn); background: rgba(255, 176, 46, .12); border: 1px solid rgba(255, 176, 46, .32); }
+.pill.admin { color: var(--danger); background: rgba(255, 92, 122, .12); border: 1px solid rgba(255, 92, 122, .3); }
+.pill.where { color: var(--acc-soft); background: var(--acc-dim); border: 1px solid rgba(255, 79, 216, .28); }
+.pill.panel { color: #7dd3fc; background: rgba(125, 211, 252, .1); border: 1px solid rgba(125, 211, 252, .28); }
+.copy {
+  font-family: var(--mono); font-size: 11.5px; cursor: pointer; padding: 6px 10px;
+  border-radius: 8px; border: 1px solid var(--line2); background: rgba(255, 255, 255, .04);
+  color: var(--faint); transition: all .15s;
+}
+.copy:hover { border-color: var(--acc); color: var(--acc-soft); }
+.copy.done { color: var(--ok); border-color: rgba(74, 222, 128, .5); }
+.empty { padding: 54px 20px; text-align: center; color: var(--faint); border: 1px dashed var(--line2); border-radius: var(--r-md); }
+.empty b { color: var(--txt); display: block; font-size: 17px; margin-bottom: 6px; }
+.expand {
+  width: 100%; margin-top: 6px; justify-content: center; padding: 15px;
+  border-style: dashed; border-color: var(--acc);
+  background: linear-gradient(135deg, rgba(255, 79, 216, .1), rgba(176, 107, 255, .07));
+  color: var(--acc-soft); font-size: 15px;
+}
+.expand:hover { background: linear-gradient(135deg, rgba(255, 79, 216, .2), rgba(176, 107, 255, .14)); }
+
+/* ================= panel preview ================= */
+.mock {
+  border-radius: var(--r-lg); overflow: hidden; border: 1px solid var(--line2);
+  background: rgba(20, 9, 26, .9); box-shadow: var(--shadow); display: grid;
+  grid-template-columns: 186px 1fr; min-height: 372px;
+}
+.mock-side { border-right: 1px solid var(--line); padding: 15px 12px; background: rgba(255, 255, 255, .02); }
+.mock-brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13.5px; padding: 4px 6px 14px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.mock-nav { display: grid; gap: 3px; }
+.mock-nav i {
+  font-style: normal; font-size: 12.6px; color: var(--faint); padding: 8px 10px;
+  border-radius: 8px; display: flex; align-items: center; gap: 8px;
+}
+.mock-nav i.on { background: var(--acc-dim); color: var(--acc-soft); font-weight: 650; }
+.mock-main { padding: 17px; display: grid; gap: 14px; align-content: start; }
+.mock-top { display: flex; align-items: center; gap: 10px; }
+.mock-top h4 { margin: 0; font-size: 15px; letter-spacing: -.01em; }
+.mock-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px; }
+.mock-card { padding: 13px; border-radius: 11px; background: rgba(44, 23, 57, .6); border: 1px solid var(--line); }
+.mock-card .k { font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); font-weight: 700; }
+.mock-card .v { font-family: var(--mono); font-size: 18px; font-weight: 700; margin-top: 4px; }
+.mock-log { border-radius: 11px; border: 1px solid var(--line); background: rgba(11, 5, 15, .7); padding: 12px 13px; font-family: var(--mono); font-size: 11.6px; line-height: 1.85; }
+.mock-log .t { color: var(--faint); }
+.mock-log .g { color: var(--ok); }
+.mock-log .m { color: var(--acc-soft); }
+.mock-log .w { color: var(--warn); }
+.mock-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.mock-chip { font-size: 10.5px; padding: 4px 9px; border-radius: 7px; background: rgba(255, 255, 255, .05); border: 1px solid var(--line); color: var(--faint); }
+
+/* ================= support server ================= */
+.support { display: grid; grid-template-columns: 1.05fr .95fr; gap: 34px; align-items: start; }
+.channels { border-radius: var(--r-lg); border: 1px solid var(--line); background: rgba(30, 15, 40, .7); overflow: hidden; }
+.channels .hd { padding: 15px 18px; border-bottom: 1px solid var(--line); font-weight: 750; font-size: 14.5px; display: flex; align-items: center; gap: 9px; }
+.channels .body { padding: 14px 14px 18px; display: grid; gap: 3px; }
+.ch-group { font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--faint); font-weight: 750; padding: 13px 8px 6px; }
+.ch { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 8px; font-size: 14px; color: var(--dim); }
+.ch:hover { background: rgba(255, 255, 255, .05); color: var(--txt); }
+.ch .h { color: var(--faint); font-weight: 700; }
+.ch .tag { margin-left: auto; font-size: 9.5px; padding: 2px 7px; border-radius: 100px; background: var(--acc-dim); color: var(--acc-soft); border: 1px solid rgba(255, 79, 216, .28); font-weight: 750; letter-spacing: .05em; }
+.roles { display: grid; gap: 11px; }
+.role { display: flex; gap: 13px; align-items: flex-start; padding: 15px 17px; border-radius: var(--r-md); border: 1px solid var(--line); background: rgba(36, 18, 47, .5); }
+.role .sw { width: 11px; height: 11px; border-radius: 50%; margin-top: 6px; flex: none; box-shadow: 0 0 12px currentColor; }
+.role b { display: block; font-size: 14.5px; }
+.role span { font-size: 13.6px; color: var(--dim); }
+
+/* ================= final cta ================= */
+.cta-box {
+  position: relative; overflow: hidden; text-align: center; padding: 66px 34px;
+  border-radius: 26px; border: 1px solid rgba(255, 79, 216, .32);
+  background: linear-gradient(150deg, rgba(255, 79, 216, .14), rgba(176, 107, 255, .1) 55%, rgba(36, 18, 47, .5));
+}
+.cta-box::before {
+  content: ''; position: absolute; inset: -60% 20% auto; height: 130%;
+  background: radial-gradient(circle, rgba(255, 79, 216, .28), transparent 65%); filter: blur(40px); pointer-events: none;
+}
+.cta-box > * { position: relative; }
+.cta-box h2 { margin-bottom: 13px; }
+.cta-box p { color: var(--dim); max-width: 60ch; margin: 0 auto 28px; font-size: 17px; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 13px; justify-content: center; }
+
+/* ================= pricing ================= */
+.price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
+.price-card { position: relative; display: flex; flex-direction: column; gap: 13px; padding: 27px 24px 25px; border: 1px solid var(--line); border-radius: var(--r-md); background: rgba(36, 18, 47, .5); }
+.price-card.hot { border-color: rgba(255, 79, 216, .5); background: linear-gradient(160deg, rgba(255, 79, 216, .13), rgba(176, 107, 255, .08) 55%, rgba(36, 18, 47, .6)); box-shadow: 0 26px 62px -32px rgba(255, 79, 216, .8); transform: translateY(-6px); }
+.price-card .badge { position: absolute; top: -12px; left: 22px; font-size: 10.5px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; padding: 4px 12px; border-radius: 100px; background: var(--acc); color: #20041f; box-shadow: 0 8px 22px -8px rgba(255, 79, 216, .9); }
+.price-card .pname { font-weight: 750; font-size: 14.5px; color: var(--acc-soft); text-transform: uppercase; letter-spacing: .07em; }
+.price-card .pprice { font-size: 42px; font-weight: 850; line-height: .95; letter-spacing: -.02em; }
+.price-card .pprice span { font-size: 12.5px; font-weight: 600; color: var(--faint); margin-left: 8px; letter-spacing: 0; }
+.price-card ul { list-style: none; margin: 2px 0 4px; padding: 0; display: grid; gap: 9px; }
+.price-card li { font-size: 14.2px; color: var(--dim); padding-left: 22px; position: relative; line-height: 1.45; }
+.price-card li::before { content: '✓'; position: absolute; left: 0; top: 0; color: var(--acc); font-weight: 800; }
+.price-card .btn { justify-content: center; margin-top: auto; }
+.price-note { text-align: center; color: var(--faint); font-size: 13.6px; margin: 20px 0 0; }
+@media (max-width: 980px) { .price-grid { grid-template-columns: 1fr; max-width: 460px; margin-left: auto; margin-right: auto; } .price-card.hot { transform: none; } }
+
+/* ================= footer ================= */
+footer { border-top: 1px solid var(--line); padding: 38px 0 54px; margin-top: 30px; }
+.foot { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between; }
+.foot p { margin: 0; color: var(--faint); font-size: 13.5px; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13.5px; }
+.foot-links a { color: var(--dim); }
+.foot-links a:hover { color: var(--acc-soft); }
+
+/* reveal on scroll */
+.rv { opacity: 0; transform: translateY(22px); transition: opacity .6s ease, transform .6s ease; }
+.rv.in { opacity: 1; transform: none; }
+
+/* toast */
+#toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px);
+  background: rgba(30, 15, 40, .97); border: 1px solid rgba(74, 222, 128, .45);
+  color: var(--txt); padding: 11px 20px; border-radius: 12px; font-size: 14px;
+  box-shadow: var(--shadow); opacity: 0; pointer-events: none; transition: all .25s ease; z-index: 90;
+  display: flex; align-items: center; gap: 9px;
+}
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-width: 980px) {
+  .hero-grid, .support, .insight, .layers { grid-template-columns: 1fr; }
+  .features { grid-template-columns: repeat(2, 1fr); }
+  .strip-in { grid-template-columns: repeat(3, 1fr); }
+  .stat:nth-child(3) { border-right: 0; }
+  .nav-links { display: none; }
+  .mock { grid-template-columns: 1fr; }
+  .mock-side { display: none; }
+}
+@media (max-width: 660px) {
+  .features, .strip-in, .mock-cards, .cc-stats { grid-template-columns: 1fr; }
+  .stat { border-right: 0; border-bottom: 1px solid var(--line); }
+  .stat:last-child { border-bottom: 0; }
+  .cc-stat { border-right: 0; border-bottom: 1px solid var(--line); }
+  .cmd { grid-template-columns: 1fr; gap: 9px; }
+  .cmd .rt { justify-content: flex-start; }
+  section { padding: 62px 0; }
+  .hero { padding: 54px 0 44px; }
+  .chip-float { right: 8px; bottom: -16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  html { scroll-behavior: auto; }
+  .rv { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top">
+      <span class="brand-mark">R</span>
+      <span>RAB<small>Realm Assistant</small></span>
+    </a>
+    <div class="nav-links" id="navlinks">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#commands">Commands</a>
+      <a href="#panel">Panel</a>
+      <a href="#support">Support</a>
+      <a href="#pricing">Get it</a>
+    </div>
+    <div class="nav-cta">
+      <a class="btn ghost" href="https://discord.com/invite/mYhVuAjbxf" target="_blank" rel="noopener">Join server</a>
+      <a class="btn primary" href="https://discord.com/oauth2/authorize?client_id=1559656334155059281&permissions=8&scope=bot%20applications.commands" target="_blank" rel="noopener">Add to Discord</a>
+    </div>
+  </div>
+</nav>
+
+<main id="top">
+
+<!-- ==================== HERO ==================== -->
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow"><span class="dot"></span> Minecraft Bedrock · Discord · Web panel</span>
+      <h1>Your Realm,<br><span class="grad">always online.</span></h1>
+      <p class="lede">
+        Realms have no console. <b>RAB doesn't need one.</b> It links your Microsoft account,
+        supervises the world from the outside, and joins as a real player when you want it
+        in-game — all behind <b>55 slash commands</b> and a magenta control panel.
+      </p>
+      <div class="hero-cta">
+        <a class="btn primary lg" href="https://discord.com/oauth2/authorize?client_id=1559656334155059281&permissions=8&scope=bot%20applications.commands" target="_blank" rel="noopener">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.3 4.5A19 19 0 0 0 15.7 3l-.3.5c1.6.4 2.9 1 4.1 1.8a15.7 15.7 0 0 0-11-1.3A16.4 16.4 0 0 0 4.5 5.3 17 17 0 0 1 8.6 3.5L8.3 3a19 19 0 0 0-4.6 1.5C1.6 8.2 1 11.8 1.3 15.4a19 19 0 0 0 5.7 2.9l1.2-1.9c-.7-.3-1.3-.6-1.9-1l.5-.4a13.5 13.5 0 0 0 11.4 0l.5.4c-.6.4-1.2.7-1.9 1l1.2 1.9a19 19 0 0 0 5.7-2.9c.4-4.2-.6-7.8-3-10.9ZM8.5 13.4c-1 0-1.9-1-1.9-2.1 0-1.2.8-2.1 1.9-2.1s1.9 1 1.9 2.1c0 1.2-.9 2.1-1.9 2.1Zm7 0c-1 0-1.9-1-1.9-2.1 0-1.2.8-2.1 1.9-2.1s1.9 1 1.9 2.1c0 1.2-.9 2.1-1.9 2.1Z"/></svg>
+          Add to Discord
+        </a>
+        <a class="btn lg" href="#commands">Browse all 55 commands</a>
+      </div>
+      <div class="hero-trust">
+        <span><b class="tick">✓</b> World saved before every restart</span>
+        <span><b class="tick">✓</b> Survives game updates</span>
+        <span><b class="tick">✓</b> Polite to players</span>
+      </div>
+    </div>
+
+    <div style="position:relative">
+      <div class="console-card">
+        <div class="cc-bar">
+          <span class="lamp" style="background:#ff5c7a"></span>
+          <span class="lamp" style="background:#ffb02e"></span>
+          <span class="lamp" style="background:#4ade80"></span>
+          <span class="cc-title">rab — supervision</span>
+          <span class="cc-live"><i></i>LIVE</span>
+        </div>
+        <div class="cc-stats">
+          <div class="cc-stat"><div class="k">Uptime</div><div class="v ok" id="uptime">99.98%</div></div>
+          <div class="cc-stat"><div class="k">Players</div><div class="v" id="pcount">7</div></div>
+          <div class="cc-stat"><div class="k">Layer 1</div><div class="v acc">OK</div></div>
+        </div>
+        <div class="cc-feed" id="feed" aria-live="polite"></div>
+      </div>
+      <div class="chip-float">
+        <span class="who">you</span>
+        <span class="slash">/realm status</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ==================== STATS ==================== -->
+<div class="strip">
+  <div class="wrap strip-in">
+    <div class="stat"><div class="n" data-count="55">55</div><div class="l">Slash commands, all registered</div></div>
+    <div class="stat"><div class="n">25<span class="u">/25</span></div><div class="l">Discord option cap, used fully</div></div>
+    <div class="stat"><div class="n" data-count="97">97</div><div class="l">Automated tests passing</div></div>
+    <div class="stat"><div class="n">2</div><div class="l">Layers, so one can break</div></div>
+    <div class="stat"><div class="n">24<span class="u">/7</span></div><div class="l">Keep-alive supervision</div></div>
+  </div>
+</div>
+
+<!-- ==================== HOW IT WORKS ==================== -->
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="kicker">How it works</div>
+      <h2>The hard part is that <span class="grad">Realms have no console.</span></h2>
+      <p>A self-hosted server hands you a terminal. A Realm doesn't. That single constraint
+         decides everything about how RAB is built.</p>
+    </div>
+
+    <div class="insight rv">
+      <div class="box bad">
+        <span class="tag bad">The usual approach</span>
+        <h3>Tail a log file, hope it stays valid</h3>
+        <p>Most bots parse a console that updates whenever the game changes. When Bedrock ships
+           a new protocol version, the parser silently stops matching — and your moderation
+           tools go quiet until someone ships a fix.</p>
+      </div>
+      <div class="box good">
+        <span class="tag good">How RAB does it</span>
+        <h3>Two independent layers, ranked by durability</h3>
+        <p>Management runs against Microsoft's stable Realms API. In-world presence is a
+           separate, optional layer that joins as a player. If the game updates break the
+           second layer, everything in the first one keeps working.</p>
+      </div>
+    </div>
+
+    <div class="layers rv">
+      <div class="layer">
+        <span class="num">1</span>
+        <span class="badge">Layer 1 · Management</span>
+        <h3>Microsoft's Realms API</h3>
+        <p>The owner-facing surface. Backups, invites, permissions, bans, open/close —
+           read and written through the documented REST layer rather than the game protocol.</p>
+        <ul>
+          <li><b>Never</b> breaks when Bedrock ships a new version</li>
+          <li>Works while nobody is online in the world</li>
+          <li>Built first, so the surface you rely on never goes down</li>
+          <li>Backups &amp; restore with a safety warning before a restore</li>
+        </ul>
+      </div>
+      <div class="layer">
+        <span class="num">2</span>
+        <span class="badge">Layer 2 · In-world</span>
+        <h3>Joins as a real player</h3>
+        <p>The chat bridge, in-game commands and presence alerts. RAB signs in with a device
+           code once, then walks into your Realm as an ordinary account.</p>
+        <ul>
+          <li>Bridges Realm chat into Discord, both directions</li>
+          <li>Reads the world directly for playtime and evidence</li>
+          <li><b>Polite mode</b> — it never spams or nags players</li>
+          <li>If an update breaks it, Layer 1 still runs the show</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="stability rv">
+      <div class="ico">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff4fd8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+      </div>
+      <p><b>Why this matters for you:</b> an update to Minecraft does not take your admin
+        tools offline. The management layer is decoupled from the game version entirely, so
+        the commands you actually use every day keep working while the in-world layer catches up.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== FEATURES ==================== -->
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="kicker">What you get</div>
+      <h2>Everything a Realm owner is <span class="grad">otherwise missing.</span></h2>
+      <p>Console commands, analytics, moderation history and a support server — the things
+         self-hosted servers take for granted.</p>
+    </div>
+    <div class="features rv" id="featgrid"></div>
+  </div>
+</section>
+
+<!-- ==================== COMMANDS ==================== -->
+<section id="commands">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="kicker">Command reference</div>
+      <h2>Fifty-five commands, <span class="grad">all of them real.</span></h2>
+      <p>Search the live surface. Every row below is registered with Discord right now —
+         these aren't mock-ups, and <span class="mono" style="color:var(--acc-soft)">/realm</span>
+         sits exactly on Discord's 25-option ceiling.</p>
+    </div>
+
+    <div class="tools rv">
+      <label class="search">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" id="q" placeholder="Search commands — try “backup”, “ban”, “playtime”…" aria-label="Search commands">
+      </label>
+      <button class="btn ghost" id="clear" type="button">Reset</button>
+    </div>
+
+    <div class="tools rv" style="margin-bottom:6px">
+      <div class="chips" id="catchips" role="group" aria-label="Filter by category"></div>
+      <span class="tool-sep"></span>
+      <div class="chips" id="tierchips" role="group" aria-label="Filter by permission tier"></div>
+    </div>
+
+    <div class="result-meta rv"><span id="count"></span></div>
+    <div class="cmd-list" id="cmdlist"></div>
+  </div>
+</section>
+
+<!-- ==================== PANEL ==================== -->
+<section id="panel">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="kicker">The control panel</div>
+      <h2>A web panel that <span class="grad">looks like it was designed.</span></h2>
+      <p>Live console with filter chips, a real player table, a command palette on
+         <span class="mono">Ctrl</span>+<span class="mono">K</span>, and full command docs with
+         one-click examples you can actually run.</p>
+    </div>
+
+    <div class="mock rv">
+      <aside class="mock-side">
+        <div class="mock-brand"><span class="brand-mark" style="width:22px;height:22px;font-size:12px;border-radius:7px">R</span> Realm Assistant</div>
+        <div class="mock-nav">
+          <i>◈ Dashboard</i>
+          <i class="on">◍ Console</i>
+          <i>◉ Players</i>
+          <i>⧉ Command docs</i>
+          <i>◷ Activity</i>
+          <i>⚙ Targets</i>
+          <i>⚑ Staff ladder</i>
+        </div>
+      </aside>
+      <div class="mock-main">
+        <div class="mock-top">
+          <h4>Console</h4>
+          <span class="pill where" style="margin-left:auto">● streaming</span>
+        </div>
+        <div class="mock-chips">
+          <span class="mock-chip">all</span><span class="mock-chip">join / leave</span>
+          <span class="mock-chip">chat</span><span class="mock-chip">moderation</span>
+          <span class="mock-chip">errors</span><span class="mock-chip">saves</span>
+        </div>
+        <div class="mock-cards">
+          <div class="mock-card"><div class="k">Uptime</div><div class="v" style="color:var(--ok)">99.98%</div></div>
+          <div class="mock-card"><div class="k">Online</div><div class="v">7 / 10</div></div>
+          <div class="mock-card"><div class="k">Last save</div><div class="v" style="color:var(--acc-soft)">18s</div></div>
+        </div>
+        <div class="mock-log">
+          <div><span class="t">[18:41:02]</span> <span class="g">Player connected:</span> NovaCraft_</div>
+          <div><span class="t">[18:41:07]</span> <span class="m">RAB:</span> welcome back NovaCraft_</div>
+          <div><span class="t">[18:41:44]</span> <span class="w">Autosave complete</span> (world saved, 0.9s)</div>
+          <div><span class="t">[18:42:10]</span> <span class="g">Player connected:</span> pixelwraith</div>
+          <div><span class="t">[18:42:31]</span> <span class="m">Discord → Realm:</span> restart in 10!</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="features rv" style="margin-top:22px">
+      <div class="feat"><div class="ic">⌘</div><h3>Ctrl+K command palette</h3><p>Jump to any panel view or fire any engine command without touching the rail.</p></div>
+      <div class="feat"><div class="ic">▤</div><h3>Filterable console</h3><p>Chips for joins, chat, moderation, errors and saves — so the log you need isn't buried.</p></div>
+      <div class="feat"><div class="ic">▶</div><h3>Runnable docs</h3><p>Every documented command has a ▶ Run button. The <span id="engcount">25</span> engine commands execute right there.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== SUPPORT ==================== -->
+<section id="support">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="kicker">Support server</div>
+      <h2>There's a <span class="grad">real support desk</span> behind it.</h2>
+      <p>Realm players get help from staff, not a dead FAQ. Tickets, status and a channel
+         for every kind of problem.</p>
+    </div>
+
+    <div class="support rv">
+      <div class="channels">
+        <div class="hd">
+          <span class="brand-mark" style="width:22px;height:22px;font-size:12px;border-radius:7px">R</span>
+          RAB Support
+        </div>
+        <div class="body">
+          <div class="ch-group">Start here</div>
+          <div class="ch"><span class="h">#</span> welcome <span class="tag">read first</span></div>
+          <div class="ch"><span class="h">#</span> rules</div>
+          <div class="ch"><span class="h">#</span> announcements</div>
+          <div class="ch-group">Get help</div>
+          <div class="ch"><span class="h">#</span> realm-help</div>
+          <div class="ch"><span class="h">#</span> realm-support <span class="tag">tickets</span></div>
+          <div class="ch"><span class="h">#</span> realm-requests</div>
+          <div class="ch"><span class="h">#</span> ticket-panel</div>
+          <div class="ch-group">Status</div>
+          <div class="ch"><span class="h">#</span> realm-status</div>
+          <div class="ch"><span class="h">#</span> bot-commands</div>
+          <div class="ch-group">Staff</div>
+          <div class="ch"><span class="h">#</span> staff-chat</div>
+          <div class="ch"><span class="h">#</span> dev-logs</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="roles">
+          <div class="role"><span class="sw" style="background:#4ade80;color:#4ade80"></span><div><b>RAB Players</b><span>Everyone who plays on a RAB Realm — help channels unlocked on arrival.</span></div></div>
+          <div class="role"><span class="sw" style="background:#ffb02e;color:#ffb02e"></span><div><b>Support Staff</b><span>Answers tickets and runs moderator-tier commands.</span></div></div>
+          <div class="role"><span class="sw" style="background:#ff5c7a;color:#ff5c7a"></span><div><b>RAB Admin</b><span>Full admin tier — backups, restore, permissions, Realm open/close.</span></div></div>
+          <div class="role"><span class="sw" style="background:#b06bff;color:#b06bff"></span><div><b>RAB {DEV}</b><span>Builds it. Watches the logs so you don't have to.</span></div></div>
+        </div>
+        <div class="stability" style="margin-top:18px">
+          <div class="ico">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff4fd8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <p><b>Permission tiers are enforced everywhere.</b> The same ladder that gates
+             Discord commands gates the web panel — viewer, moderator and admin resolve from
+             your roles, once, in one module.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== PRICING ==================== -->
+<section id="pricing">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <div class="kicker">Get RAB</div>
+      <h2>Free to run. <span class="grad">Pay only if you want me to set it up.</span></h2>
+      <p>RAB is self-hosted — it runs on your own PC or VPS with your own Microsoft login,
+         so there's no monthly fee. Setup help is optional.</p>
+    </div>
+    <div class="price-grid rv">
+      <div class="price-card">
+        <div class="pname">Self-install</div>
+        <div class="pprice">Free</div>
+        <ul>
+          <li>All 55 commands + the web panel</li>
+          <li>Runs on your PC or VPS</li>
+          <li>Docs + community Discord</li>
+        </ul>
+        <a class="btn lg" href="https://discord.com/invite/mYhVuAjbxf" target="_blank" rel="noopener">Get the installer</a>
+      </div>
+      <div class="price-card hot">
+        <div class="badge">Most popular</div>
+        <div class="pname">Setup with me</div>
+        <div class="pprice">$19<span>one-time</span></div>
+        <ul>
+          <li>Everything in Self-install</li>
+          <li>Live install session — running in ~30 min</li>
+          <li>Config tuned for your Realm</li>
+          <li>14-day priority support</li>
+        </ul>
+        <a class="btn primary lg" href="https://discord.com/invite/mYhVuAjbxf" target="_blank" rel="noopener">Book a setup</a>
+      </div>
+      <div class="price-card">
+        <div class="pname">Done-for-you</div>
+        <div class="pprice">$49<span>one-time</span></div>
+        <ul>
+          <li>Everything in Setup with me</li>
+          <li>Whitelist, alerts, roles &amp; schedules configured</li>
+          <li>30-day priority support</li>
+        </ul>
+        <a class="btn lg" href="https://discord.com/invite/mYhVuAjbxf" target="_blank" rel="noopener">Have it installed</a>
+      </div>
+    </div>
+    <p class="price-note">Arrange it in Discord — one-time PayPal, and a full refund if it isn't running when we finish.</p>
+  </div>
+</section>
+
+<!-- ==================== CTA ==================== -->
+<section style="padding-top:20px">
+  <div class="wrap">
+    <div class="cta-box rv">
+      <div class="kicker" style="justify-content:center">Ready when you are</div>
+      <h2>Put a <span class="grad">control room</span> around your Realm.</h2>
+      <p>Add the bot, link your Microsoft account with a device code, and you're running.
+         Self-install is free — pay only if you want me to set it up for you.</p>
+      <div class="cta-row">
+        <a class="btn primary lg" href="https://discord.com/oauth2/authorize?client_id=1559656334155059281&permissions=8&scope=bot%20applications.commands" target="_blank" rel="noopener">Add to Discord</a>
+        <a class="btn lg" href="https://discord.com/invite/mYhVuAjbxf" target="_blank" rel="noopener">Join the support server</a>
+        <a class="btn lg ghost" href="#commands">See the commands</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <p>RAB — Realm Assistant Bot · Minecraft Bedrock edition</p>
+    <div class="foot-links">
+      <a href="#how">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#commands">Commands</a>
+      <a href="#panel">Panel</a>
+      <a href="#pricing">Get it</a>
+      <a href="https://discord.com/invite/mYhVuAjbxf" target="_blank" rel="noopener">Support server</a>
+    </div>
+  </div>
+</footer>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const RAB_CATS=["Onboarding a Realm","Playtime analytics","Moderation","Watch alerts","Scheduled broadcasts","Everyday","Server ops","Discord extras","Accounts","Realm management"];
+const RAB_CMDS=[["/realm session list","List the Realms the linked account can access","admin","/realm session list",null,0],["/realm session join","Bring the bot into your Realm (it joins as a player)","admin","/realm session join realm:My-Realm",null,0],["/realm session leave","Leave the Realm and free the player slot","admin","/realm session leave",null,0],["/realm stats top","Leaderboard of players by playtime","admin","/realm stats top count:10","top 10",1],["/realm stats profile","Playtime profile for one player","admin","/realm stats profile player:Alex","profile Alex",1],["/realm stats why","What happened to a player — joins, kicks, bans, evidence","admin","/realm stats why player:Alex","why Alex",2],["/realm stats audit","Recent staff actions RAB recorded","admin","/realm stats audit count:20","audit 20",1],["/realm stats policy","The staff ladder — who may do what","admin","/realm stats policy","policy",1],["/realm watch add","Watch a player","admin","/realm watch add player:Notch",null,3],["/realm watch remove","Stop watching a player","admin","/realm watch remove player:Notch",null,3],["/realm watch list","Show the watch list and alert channel","admin","/realm watch list",null,3],["/realm watch channel","Post watch alerts in this channel (run it inside one)","admin","/realm watch channel",null,3],["/realm schedule add","Broadcast a message every day at a set time","admin","/realm schedule add time:18:30 message:Daily event in the hub!",null,4],["/realm schedule remove","Cancel a scheduled broadcast","admin","/realm schedule remove id:1",null,4],["/realm schedule list","Show scheduled broadcasts","admin","/realm schedule list",null,4],["/realm status","Connection, player count, uptime","admin","/realm status","status",5],["/realm activity","Recent console, players and what RAB has done","admin","/realm activity","activity",5],["/realm targets","List the servers RAB manages","admin","/realm targets","targets",0],["/realm add","Add your Realm to RAB (or register a server folder)","admin","/realm add",null,0],["/realm use","Switch RAB to another registered server","admin","/realm use name:survival","use survival",0],["/realm remove","Forget a registered server","admin","/realm remove name:survival","remove survival",0],["/realm players","List known players and who is online","admin","/realm players","players",5],["/realm online","Ask the server who is connected right now","admin","/realm online","online",5],["/realm kick","Kick a player","admin","/realm kick name:Griefer99","kick Griefer99",2],["/realm ban","Block a player (removes them from the allow-list too)","admin","/realm ban name:Griefer99","ban Griefer99",2],["/realm unban","Unblock a player","admin","/realm unban name:Griefer99","unban Griefer99",2],["/realm banlist","Show blocked players","admin","/realm banlist","banlist",2],["/realm allowlist","Show the server allow-list, or turn it on/off","admin","/realm allowlist mode:on","allowlist on",2],["/realm broadcast","Broadcast a message to the server","admin","/realm broadcast message:Restart in 10 minutes!","broadcast Restart in 10 minutes!",2],["/realm save-off","Hold world saves","admin","/realm save-off","save hold",6],["/realm save-on","Resume world saves","admin","/realm save-on","save resume",6],["/realm restart","Restart the Bedrock server","admin","/realm restart","restart",6],["/realm stop","Stop the Bedrock server (world is saved)","admin","/realm stop","stop",6],["/realm start","Start the Bedrock server again","admin","/realm start","start",6],["/realm panel","Post or edit the ticket panel in #ticket-panel","admin","/realm panel title:Realm support",null,7],["/realm help","What RAB can do right now","admin","/realm help","help",5],["/manage accounts","Microsoft account slots — which is linked and which one RAB acts as","viewer","/manage accounts",null,8],["/manage account-new","Open a fresh account slot (then run /realm add to link it)","admin","/manage account-new",null,8],["/manage account-use","Switch which account RAB signs in as — no new Microsoft prompt","admin","/manage account-use",null,8],["/manage realms","Realms the linked account can see, with ids and online counts","viewer","/manage realms",null,9],["/manage players","Member roster and who is online right now","viewer","/manage players",null,9],["/manage info","Realm settings, owner and subscription state","viewer","/manage info",null,9],["/manage backups","List the Realm’s backups","viewer","/manage backups",null,9],["/manage invitecode","Get the invite link, or refresh it (invalidates the old one)","moderator","/manage invitecode",null,9],["/manage open","Open the Realm so players can join","admin","/manage open",null,9],["/manage close","Close the Realm (everyone online is disconnected)","admin","/manage close",null,9],["/manage invite","Invite a player by Xbox user id","moderator","/manage invite",null,9],["/manage remove","Remove a player from the Realm (they cannot rejoin uninvited)","moderator","/manage remove",null,9],["/manage op","Grant operator on the Realm","admin","/manage op",null,9],["/manage deop","Remove operator on the Realm","admin","/manage deop",null,9],["/manage ban","Ban a player from the Realm","admin","/manage ban",null,9],["/manage unban","Unban a player","admin","/manage unban",null,9],["/manage permission","Set a player’s Realm permission","admin","/manage permission",null,9],["/manage restore","Restore the Realm from a backup (everyone online is disconnected)","admin","/manage restore",null,9],["/activity","The activity hub as its own top-level command","viewer","/activity","activity",5]];
+
+/* ---------------- feature grid ---------------- */
+// Derived from the data above so a claim can never drift from reality: this is
+// how many commands the web panel can actually run.
+const ENGINE_N = RAB_CMDS.filter((c) => c[4]).length;
+const engEl = document.getElementById('engcount');
+if (engEl) engEl.textContent = ENGINE_N;
+
+const FEATURES = [
+  ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z', 'Always online',
+   'A keep-alive loop restarts RAB if it ever dies, and every graceful cycle saves the world first — stop, release the port, respawn.', 'killswitch'],
+  ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', 'Joins as a player',
+   'Realms have no console, so RAB signs in with a device code once and walks into your world as an ordinary account.', 'polite mode'],
+  ['M3 3v18h18', 'Playtime analytics',
+   'Leaderboards, per-player profiles, join history and an audit trail — the paid tier most Realm bots gate behind a subscription.', 'free'],
+  ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z', 'Moderation with evidence',
+   'Kick, ban, unban and allow-list, plus "what happened to this player" with the joins, kicks and reasons RAB recorded.', 'audit'],
+  ['M4 4h16v12H4z', 'Live web panel',
+   'Streamed console, real player table, filter chips, Ctrl+K palette and runnable docs — magenta, and it looks the part.', ENGINE_N + ' run buttons'],
+  ['M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9', 'Watch &amp; schedule',
+   'Ping a channel when a specific player joins or leaves, and broadcast on a daily timer without anyone typing it.', 'alerts'],
+  ['M20 7h-9M14 17H5', 'Backups &amp; restore',
+   'List Realm backups with size, date and game version, and roll back with an explicit warning before anyone loses work.', 'safety'],
+  ['M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z', 'Multi-account slots',
+   'Link an alt without evicting your main account. Switching is a pointer change, not a new Microsoft sign-in.', 'no re-auth'],
+  ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2', 'Ticket panel',
+   'Post a ticket panel into your server and let players open support requests that land in a staff channel.', 'built in']
+];
+document.getElementById('featgrid').innerHTML = FEATURES.map(([d, t, p, tag]) => `
+  <article class="feat">
+    <div class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#ff8ee6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg></div>
+    <h3>${t}</h3>
+    <p>${p}</p>
+    <span class="more">${tag} →</span>
+  </article>`).join('');
+
+/* ---------------- hero feed ---------------- */
+const FEED = [
+  ['18:40:58', '<span class="g">keep-alive</span> · supervision tick ok'],
+  ['18:41:02', '<span class="g">Player connected:</span> NovaCraft_'],
+  ['18:41:07', '<span class="m">chat bridge →</span> Discord #realm-status'],
+  ['18:41:44', '<span class="w">Autosave complete</span> (world saved, 0.9s)'],
+  ['18:42:10', '<span class="g">Player connected:</span> pixelwraith'],
+  ['18:42:31', '<span class="m">Discord → Realm:</span> restart in 10 minutes!'],
+  ['18:43:05', '<span class="g">Layer 1</span> · Realms API ok (no game update needed)'],
+  ['18:43:40', '<span class="w">watch alert →</span> pixelwraith joined'],
+  ['18:44:12', '<span class="g">backup</span> · slot 1 · 42.7 MB · saved']
+];
+const feed = document.getElementById('feed');
+let fi = 0;
+function pushFeed() {
+  const [t, html] = FEED[fi % FEED.length];
+  const el = document.createElement('div');
+  el.className = 'ln';
+  el.innerHTML = '<span class="t">[' + t + ']</span> ' + html;
+  feed.appendChild(el);
+  while (feed.children.length > 7) feed.removeChild(feed.firstChild);
+  fi++;
+}
+for (let i = 0; i < 6; i++) pushFeed();
+setInterval(pushFeed, 2600);
+
+/* live-ish counters */
+let pc = 7;
+setInterval(() => {
+  pc = Math.max(3, Math.min(10, pc + (Math.random() < .5 ? -1 : 1)));
+  document.getElementById('pcount').textContent = pc;
+}, 5200);
+
+/* ---------------- stats count-up ---------------- */
+const statObs = new IntersectionObserver((es) => {
+  es.forEach((e) => {
+    if (!e.isIntersecting) return;
+    const el = e.target, target = +el.dataset.count, t0 = performance.now();
+    const step = (t) => {
+      const k = Math.min(1, (t - t0) / 1100);
+      el.textContent = Math.round(target * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+    statObs.unobserve(el);
+  });
+}, { threshold: .5 });
+document.querySelectorAll('[data-count]').forEach((el) => statObs.observe(el));
+
+/* ---------------- command explorer ---------------- */
+const TIERS = ['viewer', 'moderator', 'admin'];
+const state = { q: '', cat: -1, tier: '', expanded: false };
+
+const catCounts = RAB_CATS.map((_, i) => RAB_CMDS.filter((c) => c[5] === i).length);
+const tierCounts = TIERS.map((t) => RAB_CMDS.filter((c) => c[2] === t).length);
+
+document.getElementById('catchips').innerHTML =
+  `<button class="chip" data-cat="-1" aria-pressed="true">All<span class="ct">${RAB_CMDS.length}</span></button>` +
+  RAB_CATS.map((c, i) => `<button class="chip" data-cat="${i}" aria-pressed="false">${c}<span class="ct">${catCounts[i]}</span></button>`).join('');
+
+document.getElementById('tierchips').innerHTML =
+  `<button class="chip" data-tier="" aria-pressed="true">Any tier</button>` +
+  TIERS.map((t, i) => `<button class="chip" data-tier="${t}" aria-pressed="false">${t}<span class="ct">${tierCounts[i]}</span></button>`).join('');
+
+function slug(cmd) { return cmd.replace(/^\//, ''); }
+function splitCmd(cmd) {
+  // cmd already carries its leading slash ("/realm session list"), so the
+  // group portion is echoed as-is and only the final segment is highlighted.
+  const p = cmd.split(' ');
+  return '<span class="sub">' + p.slice(0, -1).join(' ') + '</span> ' + p[p.length - 1];
+}
+
+function matches(c) {
+  if (state.cat !== -1 && c[5] !== state.cat) return false;
+  if (state.tier && c[2] !== state.tier) return false;
+  if (!state.q) return true;
+  const q = state.q;
+  return (c[0] + ' ' + c[1] + ' ' + c[3] + ' ' + (c[4] || '') + ' ' + RAB_CATS[c[5]]).toLowerCase().includes(q);
+}
+
+function render() {
+  const rows = RAB_CMDS.filter(matches);
+  const list = document.getElementById('cmdlist');
+  const filtering = state.q !== '' || state.cat !== -1 || state.tier !== '';
+
+  // The full list is ~4700px tall — longer than the rest of the page combined,
+  // and a visitor would scroll past it and never reach the CTA. Show enough to
+  // prove the depth, then let them ask for the rest. Filtering shows every
+  // match, because a search that hides results is just broken.
+  const COLLAPSED = 12;
+  const open = state.expanded || filtering || rows.length <= COLLAPSED;
+  const shown = open ? rows : rows.slice(0, COLLAPSED);
+
+  document.getElementById('count').innerHTML =
+    `Showing <b>${rows.length}</b> of <b>${RAB_CMDS.length}</b>` +
+    (state.q ? ` matching “${state.q}”` : '') +
+    (open ? '' : ` — <b>${shown.length}</b> below, the rest behind one click`) +
+    ` · <span style="color:var(--faint)">${rows.filter((r) => r[4]).length} runnable in the panel</span>`;
+
+  if (!rows.length) {
+    list.innerHTML = `<div class="empty"><b>No command matches that.</b>Try “backup”, “ban”, “playtime”, “schedule” or clear the filters.</div>`;
+    return;
+  }
+
+  list.innerHTML = shown.map((c, i) => `
+    <div class="cmd" style="animation-delay:${Math.min(i * 22, 340)}ms">
+      <span class="nm">${splitCmd(c[0])}</span>
+      <span class="ds">${c[1]}</span>
+      <span class="rt">
+        <span class="pill ${c[2]}">${c[2]}</span>
+        <span class="pill ${c[4] ? 'panel' : 'where'}">${c[4] ? 'panel' : 'discord'}</span>
+        <button class="copy" data-copy="${c[4] ? c[4].replace(/"/g, '&quot;') : slug(c[0])}" title="Copy the example">copy</button>
+      </span>
+    </div>`).join('') +
+    (open ? '' : `
+      <button class="btn expand" id="expand" type="button">
+        Show all ${RAB_CMDS.length} commands
+        <span style="opacity:.7;font-weight:500">(+${RAB_CMDS.length - shown.length} more)</span>
+      </button>` +
+      `<p style="text-align:center;color:var(--faint);font-size:13.5px;margin:2px 0 0">
+        …or narrow it down with search above.
+      </p>`);
+}
+
+document.getElementById('q').addEventListener('input', (e) => { state.q = e.target.value.trim().toLowerCase(); render(); });
+document.getElementById('clear').addEventListener('click', () => {
+  state.q = ''; state.cat = -1; state.tier = ''; state.expanded = false;
+  document.getElementById('q').value = '';
+  document.querySelectorAll('.chip[data-cat]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.cat === '-1'));
+  document.querySelectorAll('.chip[data-tier]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.tier === ''));
+  render();
+});
+document.getElementById('catchips').addEventListener('click', (e) => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  state.cat = +b.dataset.cat;
+  document.querySelectorAll('.chip[data-cat]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+  render();
+});
+document.getElementById('tierchips').addEventListener('click', (e) => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  state.tier = b.dataset.tier;
+  document.querySelectorAll('.chip[data-tier]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+  render();
+});
+
+const toast = document.getElementById('toast');
+let toastT;
+function showToast(msg) {
+  toast.innerHTML = '<span style="color:var(--ok)">✓</span> ' + msg;
+  toast.classList.add('on');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => toast.classList.remove('on'), 1900);
+}
+document.getElementById('cmdlist').addEventListener('click', (e) => {
+  const grow = e.target.closest('#expand');
+  if (grow) {
+    state.expanded = true;
+    render();
+    // keep the reader's place: the list grows downward from this point
+    document.getElementById('count').scrollIntoView({ block: 'start', behavior: 'smooth' });
+    return;
+  }
+  const b = e.target.closest('.copy'); if (!b) return;
+  const text = b.dataset.copy;
+  const done = () => { b.classList.add('done'); b.textContent = 'copied'; showToast('Copied ' + text); setTimeout(() => { b.classList.remove('done'); b.textContent = 'copy'; }, 1600); };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done).catch(done);
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (_) {}
+    document.body.removeChild(ta); done();
+  }
+});
+render();
+
+/* ---------------- reveal + nav ---------------- */
+const revObs = new IntersectionObserver((es) => {
+  es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); revObs.unobserve(e.target); } });
+}, { threshold: .12, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.rv').forEach((el) => revObs.observe(el));
+
+const links = [...document.querySelectorAll('#navlinks a')];
+const secObs = new IntersectionObserver((es) => {
+  es.forEach((e) => {
+    if (!e.isIntersecting) return;
+    links.forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id));
+  });
+}, { threshold: .3 });
+['how', 'features', 'commands', 'panel', 'support'].forEach((id) => {
+  const el = document.getElementById(id); if (el) secObs.observe(el);
+});
+</script>
+</body>
+</html>
