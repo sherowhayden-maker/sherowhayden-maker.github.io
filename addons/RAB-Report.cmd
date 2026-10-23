@@ -58,6 +58,7 @@ exit /b 1
 
 param(
   [string]$PackPath,
+  [string]$HudPath,
   [string]$RunDir,
   [string]$DataRoot,
   [switch]$Force,
@@ -69,6 +70,7 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 if (-not $PackPath -and $env:RAB_PACK_ARG) { $PackPath = $env:RAB_PACK_ARG }
+if (-not $HudPath -and $env:RAB_HUD_PATH) { $HudPath = $env:RAB_HUD_PATH }
 if (-not $RunDir -and $env:RAB_RUN_DIR) { $RunDir = $env:RAB_RUN_DIR }
 
 # a dragged folder arrives as C:\some\folder\ - drop the trailing slash
@@ -78,6 +80,15 @@ if ($RunDir) { $RunDir = $RunDir.TrimEnd("\") }
 $packUuids  = @("efb65a54-925f-4010-81df-94f716666141", "f293a3f3-67f8-44ba-ac2f-faa727532237")
 $packFolder = "RAB-Scoreboard"
 $packUrl    = "https://sherowhayden-maker.github.io/addons/RAB-Scoreboard.mcpack"
+
+# The optional HUD resource pack (addons\rab-hud-rp). Only the scoreboard is
+# embedded in the one-file updater, so this is picked up when RAB-HUD.mcpack
+# sits next to the .cmd. When it is there, every world that already runs the
+# scoreboard gets it applied too - importing a resource pack into Minecraft
+# does nothing on its own, and forgetting that step looks exactly like the pack
+# being broken.
+$hudUuids   = @("04be9756-7719-46a7-9829-7af232c88ef3")
+$hudFolder  = "RAB-Personal-HUD"
 $tempWork   = New-Object System.Collections.Generic.List[string]
 
 function Say([string]$text) { Write-Host $text }
@@ -123,16 +134,25 @@ if ($Report) {
 } elseif ($Force) {
   Say "        skipped (-Force)"
 } else {
-  if (Get-Process -Name "Minecraft.Windows" -ErrorAction SilentlyContinue) {
+  # Any Minecraft client, not just the Store one: the unofficial launcher runs
+  # Minecraft.exe, and a game left open silently rewrites the world's pack list
+  # on exit - the pack installs, then disappears from the world, which looks
+  # exactly like a broken pack.
+  function Get-MinecraftClient {
+    @(Get-Process -ErrorAction SilentlyContinue |
+      Where-Object { $_.ProcessName -like "*Minecraft*" -and $_.ProcessName -notlike "*Server*" })
+  }
+
+  if (@(Get-MinecraftClient).Count -gt 0) {
     Say "        Minecraft is open - close it completely, it locks the pack files."
     Say "        Waiting up to 60s for it to close..."
     $waited = 0
-    while ($waited -lt 60 -and (Get-Process -Name "Minecraft.Windows" -ErrorAction SilentlyContinue)) {
+    while ($waited -lt 60 -and @(Get-MinecraftClient).Count -gt 0) {
       Start-Sleep -Seconds 1
       $waited++
       if ($waited % 10 -eq 0) { Say ("        still open (" + $waited + "s)") }
     }
-    if (Get-Process -Name "Minecraft.Windows" -ErrorAction SilentlyContinue) {
+    if (@(Get-MinecraftClient).Count -gt 0) {
       Stop-Fail "Minecraft is still open. Close it, then run this again."
     }
     Say "        Minecraft closed - continuing."
@@ -164,9 +184,24 @@ if (Test-Path $launcher) {
   }
 }
 
+# The same folder turns up twice on some PCs: once from the Packages scan (short
+# 8.3 path) and once from the known list (long path). Installing twice is
+# harmless but "2 worlds skipped" for 1 world is not, so de-duplicate on the
+# trailing path segments instead of the raw string.
+function Get-RootKey([string]$p) {
+  $parts = @($p -split '\\' | Where-Object { $_ })
+  $take = [Math]::Min(4, $parts.Count)
+  return (($parts[($parts.Count - $take)..($parts.Count - 1)]) -join '\').ToLower()
+}
+
 $roots = @()
+$seenRoots = @{}
 foreach ($c in $known) {
-  if ($c -and (Test-Path $c) -and ($roots -notcontains $c)) { $roots += $c }
+  if (-not $c -or -not (Test-Path $c)) { continue }
+  $key = Get-RootKey $c
+  if ($seenRoots.ContainsKey($key)) { continue }
+  $seenRoots[$key] = $true
+  $roots += $c
 }
 if ($roots.Count -eq 0) { Stop-Fail "no Minecraft data folder found - is Bedrock installed on this PC?" }
 foreach ($r in $roots) { Say ("        " + $r) }
@@ -221,6 +256,30 @@ if ($Report) {
   foreach ($p in $installed) { Say ("    v" + $p.Ver + "   " + $p.Path) }
   Say ""
 
+  # Separate pack, separate failure: a world can run the newest scoreboard and
+  # still have no HUD pack, which on screen is "the pack does nothing".
+  $hudInstalled = @()
+  foreach ($r in $roots) {
+    $dir = Join-Path $r "resource_packs"
+    if (-not (Test-Path $dir)) { continue }
+    foreach ($packDir in (Get-ChildItem $dir -Directory -ErrorAction SilentlyContinue)) {
+      $mf = Join-Path $packDir.FullName "manifest.json"
+      if (-not (Test-Path $mf)) { continue }
+      try {
+        $j = Get-Content $mf -Raw | ConvertFrom-Json
+        if ($hudUuids -contains $j.header.uuid) {
+          $hudInstalled += [pscustomobject]@{ Ver = ($j.header.version -join "."); Path = $packDir.FullName }
+        }
+      } catch { }
+    }
+  }
+  Say "  RAB Personal HUD (optional resource pack):"
+  if ($hudInstalled.Count -eq 0) {
+    Say "    not installed on this PC - the per-player line stays above the hotbar"
+  }
+  foreach ($p in $hudInstalled) { Say ("    v" + $p.Ver + "   " + $p.Path) }
+  Say ""
+
   $bound = 0
   $stale = @()
   Say "  Worlds and the build each is bound to:"
@@ -246,6 +305,16 @@ if ($Report) {
             if ($carried -and $v -ne $carried) { $stale += $name }
           }
         } catch { Say ("    " + $name + "  ->  world_behavior_packs.json is unreadable") }
+      }
+      $wrp = Join-Path $w.FullName "world_resource_packs.json"
+      if (Test-Path $wrp) {
+        try {
+          foreach ($e in (Get-Content $wrp -Raw | ConvertFrom-Json)) {
+            if ($hudUuids -contains $e.pack_id) {
+              Say ("    " + $name + "  ->  HUD pack applied (v" + ($e.version -join ".") + ")")
+            }
+          }
+        } catch { }
       }
       $emb = Join-Path $w.FullName "behavior_packs"
       if (Test-Path $emb) {
@@ -286,6 +355,9 @@ if ($Report) {
   Say "    owner re-applies it:"
   Say "      Realm settings (the gear) -> World settings (the pencil) ->"
   Say "      Behavior packs -> untick RAB Scoreboard -> tick it again -> Save"
+  if ($hudInstalled.Count -gt 0) {
+    Say "      On that same screen: Resource packs -> tick RAB Personal HUD -> Save"
+  }
   Say "    Then close the realm with the back arrow (that uploads it) and"
   Say "    reopen it. Only the realm's owner account can do this."
   Say ""
@@ -387,6 +459,56 @@ $versionText = ($version -join ".")
 Say ("        " + $manifest.header.name + "  (build " + $versionText + ")")
 Say ("        " + $label)
 
+# ------------------------------------------------------- 3b. The HUD pack
+# Optional, and deliberately not fatal: a missing or wrong HUD pack must never
+# stop the scoreboard from installing. It is only ever added to worlds that
+# already use the scoreboard, never forced on unrelated worlds.
+$hudWork = $null
+$hudVersion = $null
+$hudVersionText = $null
+$hudCandidates = @()
+if ($HudPath) {
+  if (Test-Path $HudPath -PathType Container) { $hudCandidates += (Join-Path $HudPath "RAB-HUD.mcpack") }
+  else { $hudCandidates += $HudPath }
+}
+foreach ($d in $dirs) {
+  $hudCandidates += @(
+    (Join-Path $d "RAB-HUD.mcpack"),
+    (Join-Path $d "RAB-HUD.zip"),
+    (Join-Path $d "addons\RAB-HUD.mcpack")
+  )
+  $parent = Split-Path $d -Parent
+  if ($parent) { $hudCandidates += (Join-Path $parent "addons\RAB-HUD.mcpack") }
+}
+# A downloaded pack usually lands in Downloads and never gets moved next to this
+# file - looking there too turns "the pack does nothing" into a working install.
+foreach ($loose in @((Join-Path $env:USERPROFILE "Downloads"), (Join-Path $env:USERPROFILE "Desktop"))) {
+  if ($loose) { $hudCandidates += (Join-Path $loose "RAB-HUD.mcpack") }
+}
+$hudFile = $null
+foreach ($c in $hudCandidates) {
+  if ($c -and (Test-Path $c -PathType Leaf)) { $hudFile = (Resolve-Path $c).Path; break }
+}
+if ($hudFile) {
+  try {
+    $candidate = Expand-PackFile $hudFile
+    $tempWork.Add($candidate)
+    $hudManifest = Get-Content (Join-Path $candidate "manifest.json") -Raw | ConvertFrom-Json
+    if (-not $hudManifest.header -or ($hudUuids -notcontains $hudManifest.header.uuid)) {
+      Say ("        " + (Split-Path $hudFile -Leaf) + " is not the RAB HUD pack - ignored")
+    } else {
+      $hudWork = $candidate
+      $hudVersion = @($hudManifest.header.version)
+      $hudVersionText = ($hudVersion -join ".")
+      Say ("        HUD: " + $hudManifest.header.name + "  (build " + $hudVersionText + ")")
+    }
+  } catch {
+    Say ("        HUD pack ignored: " + $_.Exception.Message)
+  }
+} else {
+  Say "        HUD: no RAB-HUD.mcpack found - scoreboard only"
+}
+
 # --------------------------------------------------------------- 4. Install
 Say "  [4/5] Installing"
 $installInto = @()
@@ -449,6 +571,32 @@ foreach ($t in $installInto) {
   $icon = if (Test-Path (Join-Path $dest "pack_icon.png")) { "yes" } else { "no" }
   Say ("        installed -> " + $dest)
   Say ("                     (icon: " + $icon + ")")
+
+  if ($hudWork) {
+    $rp = Join-Path $t "resource_packs"
+    New-Item -ItemType Directory -Force -Path $rp | Out-Null
+    # drop any older copy of the same pack, whatever folder it was imported into
+    foreach ($packDir in (Get-ChildItem $rp -Directory -ErrorAction SilentlyContinue)) {
+      $mf = Join-Path $packDir.FullName "manifest.json"
+      if (-not (Test-Path $mf)) { continue }
+      try {
+        $old = Get-Content $mf -Raw | ConvertFrom-Json
+        if ($hudUuids -contains $old.header.uuid) {
+          Remove-Item $packDir.FullName -Recurse -Force -ErrorAction SilentlyContinue
+        }
+      } catch { }
+    }
+    $rdest = Join-Path $rp $hudFolder
+    New-Item -ItemType Directory -Force -Path $rdest | Out-Null
+    try {
+      Copy-Item (Join-Path $hudWork "*") $rdest -Recurse -Force
+    } catch {
+      Say ("        HUD not installed: " + $_.Exception.Message)
+    }
+    if (Test-Path (Join-Path $rdest "manifest.json")) {
+      Say ("        HUD installed -> " + $rdest)
+    }
+  }
 }
 
 # ------------------------------------------------------------ 5. Re-bind worlds
@@ -456,6 +604,7 @@ Say "  [5/5] Re-binding worlds"
 $updated = 0
 $current = 0
 $cleared = 0
+$hudApplied = 0
 
 foreach ($r in $roots) {
   $worlds = Join-Path $r "minecraftWorlds"
@@ -500,8 +649,10 @@ foreach ($r in $roots) {
 
     $changed = $false
     $already = $false
+    $usesPack = $false
     foreach ($e in $entries) {
       if ($packUuids -contains $e.pack_id) {
+        $usesPack = $true
         if (($e.version -join ".") -eq $versionText) { $already = $true }
         else { $e.version = $version; $changed = $true }
       }
@@ -515,6 +666,44 @@ foreach ($r in $roots) {
       $updated++
     } elseif ($already) {
       $current++
+    }
+
+    # The HUD pack is a resource pack, so it is bound in a different file. Only
+    # worlds that already run the scoreboard get it: a world that has never
+    # heard of RAB should not have its action bar moved behind the owner's back.
+    if ($hudWork -and $usesPack) {
+      $wrp = Join-Path $w.FullName "world_resource_packs.json"
+      $rEntries = @()
+      if (Test-Path $wrp) {
+        try {
+          $rParsed = Get-Content $wrp -Raw | ConvertFrom-Json
+          foreach ($x in $rParsed) { $rEntries += $x }
+        } catch {
+          Say ("        could not read " + $wrp)
+          $rEntries = $null
+        }
+      }
+      if ($null -ne $rEntries) {
+        $rChanged = $false
+        $rFound = $false
+        foreach ($e in $rEntries) {
+          if ($hudUuids -contains $e.pack_id) {
+            $rFound = $true
+            if (($e.version -join ".") -ne $hudVersionText) { $e.version = $hudVersion; $rChanged = $true }
+          }
+        }
+        if (-not $rFound) {
+          $rEntries += [pscustomobject]@{ pack_id = $hudUuids[0]; version = $hudVersion }
+          $rChanged = $true
+        }
+        if ($rChanged) {
+          if (Test-Path $wrp) { Copy-Item $wrp ($wrp + ".bak") -Force -ErrorAction SilentlyContinue }
+          $json = ConvertTo-Json -InputObject @($rEntries) -Depth 5
+          [IO.File]::WriteAllText($wrp, $json, (New-Object System.Text.UTF8Encoding($false)))
+          Say ("        applied HUD pack to world '" + $name + "'")
+          $hudApplied++
+        }
+      }
     }
   }
 }
@@ -533,6 +722,12 @@ foreach ($t in $installInto) { Say ("    install : " + (Join-Path $t ("behavior_
 $worldLine = "$updated updated, $current already current"
 if ($cleared -gt 0) { $worldLine += ", $cleared embedded copy cleared" }
 Say ("    worlds  : " + $worldLine)
+if ($hudVersionText) {
+  foreach ($t in $installInto) { Say ("    HUD     : v" + $hudVersionText + "  " + (Join-Path $t ("resource_packs\" + $hudFolder))) }
+  Say ("    HUD in  : " + $hudApplied + " world(s) applied")
+} else {
+  Say "    HUD     : not installed (drop RAB-HUD.mcpack next to this file or in Downloads)"
+}
 Say ""
 Say "  Open Minecraft and play - the pack stays enabled in your worlds."
 
@@ -609,5 +804,5 @@ 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
-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
+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
 #@@RAB_PACK_END@@

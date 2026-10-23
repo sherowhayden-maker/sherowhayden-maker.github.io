@@ -2,5 +2,12 @@
 *.cmd    -text
 *.bat    -text
 *.mcpack binary
+*.mcaddon binary
+*.png    binary
+*.zip    binary
+# byte-exact downloads: never let git touch line endings here
+*.cmd    -text
+*.bat    -text
+*.mcpack binary
 *.png    binary
 *.zip    binary
