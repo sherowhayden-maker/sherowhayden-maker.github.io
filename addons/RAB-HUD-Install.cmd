@@ -42,7 +42,8 @@ exit /b 1
 param(
   [string]$PackPath,
   [string]$DataRoot,
-  [switch]$Force
+  [switch]$Force,
+  [switch]$NoUpdateCheck
 )
 
 $ErrorActionPreference = "Stop"
@@ -196,6 +197,7 @@ $already = 0
 $skipped = 0
 $appliedNames = @()
 $alreadyNames = @()
+$skippedNames = @()
 foreach ($r in $roots) {
   $worlds = Join-Path $r "minecraftWorlds"
   if (-not (Test-Path $worlds)) { continue }
@@ -219,7 +221,7 @@ foreach ($r in $roots) {
         }
       } catch { }
     }
-    if (-not $usesScoreboard) { $skipped++; continue }
+    if (-not $usesScoreboard) { $skipped++; $skippedNames += $name; continue }
 
     $wrp = Join-Path $w.FullName "world_resource_packs.json"
     $entries = @()
@@ -233,10 +235,15 @@ foreach ($r in $roots) {
     }
     $changed = $false
     $found = $false
+    # The old version is worth naming: "applied" reads like a first-time install
+    # even when all that happened was 1.1.0 -> 1.2.0, which is the usual case and
+    # used to look like the installer had done nothing at all.
+    $oldVersionText = ""
     foreach ($e in $entries) {
       if ($hudUuids -contains $e.pack_id) {
         $found = $true
-        if (($e.version -join ".") -ne $versionText) { $e.version = $version; $changed = $true }
+        $seen = (@($e.version) -join ".")
+        if ($seen -ne $versionText) { $oldVersionText = $seen; $e.version = $version; $changed = $true }
       }
     }
     if (-not $found) {
@@ -247,7 +254,11 @@ foreach ($r in $roots) {
       if (Test-Path $wrp) { Copy-Item $wrp ($wrp + ".bak") -Force -ErrorAction SilentlyContinue }
       $json = ConvertTo-Json -InputObject @($entries) -Depth 5
       [IO.File]::WriteAllText($wrp, $json, (New-Object System.Text.UTF8Encoding($false)))
-      Say ("        applied to world '" + $name + "'")
+      if ($oldVersionText) {
+        Say ("        upgraded world '" + $name + "'  v" + $oldVersionText + " -> v" + $versionText)
+      } else {
+        Say ("        added to world '" + $name + "'")
+      }
       $applied++
       $appliedNames += $name
     } else {
@@ -394,7 +405,71 @@ if ($applied -gt 0) {
 if ($already -gt 0) {
   Say ("    already had it : " + $already + " world(s) - " + ($alreadyNames -join ', '))
 }
-if ($skipped -gt 0) { Say ("    left alone     : " + $skipped + " world(s) with no RAB scoreboard") }
+if ($skipped -gt 0) {
+  # A bare count here read as "the installer skipped the worlds that matter".
+  # The rule is narrow and deliberate, so name the worlds and state the rule.
+  $shown = @($skippedNames | Select-Object -First 6)
+  $more = if ($skippedNames.Count -gt $shown.Count) { " (+ " + ($skippedNames.Count - $shown.Count) + " more)" } else { "" }
+  Say ("    left alone     : " + $skipped + " world(s) - no RAB scoreboard bound, so the")
+  Say ("                     action bar there was not touched: " + ($shown -join ', ') + $more)
+}
+if ($applied -eq 0 -and $already -eq 0 -and $skipped -gt 0) {
+  Say "    none of those worlds run the RAB scoreboard - this pack only serves its line."
+  Say "    Install the scoreboard first (RAB-Update.cmd), then run this again."
+}
+# ---------------------------------------------- is this the newest build?
+# This file is a snapshot: the pack inside it can never change, so re-running
+# an old download reinstalls the old build forever and looks exactly like "the
+# HUD still does not move". The version line alone does not help - nobody knows
+# which build is current - so ask the site and say it plainly.
+if (-not $NoUpdateCheck) {
+  $live = $null
+  $liveVersion = $null
+  try {
+    $hudUrl = "https://sherowhayden-maker.github.io/addons/RAB-HUD.mcpack"
+    $tmpLive = Join-Path $env:TEMP ("rab-hud-live-" + [IO.Path]::GetRandomFileName() + ".mcpack")
+    Invoke-WebRequest -Uri $hudUrl -UseBasicParsing -TimeoutSec 6 -OutFile $tmpLive
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $lz = [IO.Compression.ZipFile]::OpenRead($tmpLive)
+    try {
+      $lent = $lz.Entries | Where-Object { $_.FullName -eq "manifest.json" } | Select-Object -First 1
+      if ($lent) {
+        $lr = New-Object IO.StreamReader($lent.Open())
+        try { $lm = $lr.ReadToEnd() | ConvertFrom-Json } finally { $lr.Close() }
+        if ($hudUuids -contains $lm.header.uuid) {
+          $liveVersion = @($lm.header.version)
+          $live = ($liveVersion -join ".")
+        }
+      }
+    } finally { $lz.Dispose() }
+    Remove-Item $tmpLive -Force -ErrorAction SilentlyContinue
+  } catch { $live = $null }
+
+  # Only "the site is newer" is worth warning about. A publish that has not
+  # landed yet leaves the site behind, which is not the player's problem.
+  $siteIsNewer = $false
+  if ($live) {
+    $n = [Math]::Max(@($version).Count, @($liveVersion).Count)
+    for ($i = 0; $i -lt $n; $i++) {
+      $a = if ($i -lt @($version).Count) { [int]@($version)[$i] } else { 0 }
+      $b = if ($i -lt @($liveVersion).Count) { [int]@($liveVersion)[$i] } else { 0 }
+      if ($a -ne $b) { $siteIsNewer = ($b -gt $a); break }
+    }
+  }
+
+  if ($siteIsNewer) {
+    Say ""
+    Say  "  ==============================================================="
+    Say ("   OUT OF DATE: this file carries v" + $versionText + ", the site has v" + $live + ".")
+    Say ("   Re-running this copy installs v" + $versionText + " every time.")
+    Say  "   Download RAB-HUD-Install.cmd again and run the new one."
+    Say  "  ==============================================================="
+  } elseif ($live) {
+    Say ""
+    Say ("  This is the newest build (v" + $live + ").")
+  }
+}
+
 Say ""
 Say "  Load the world and look at the BOTTOM-RIGHT corner:"
 Say "      yourname - OWNER - Rank"
